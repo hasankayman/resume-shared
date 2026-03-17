@@ -1,6 +1,21 @@
 :root {
     color-scheme: light;
     font-family: Arial, Helvetica, sans-serif;
+    --page-bg: #eef1f5;
+    --surface: #ffffff;
+    --surface-soft: #f8fbff;
+    --border: #d3d8df;
+    --border-soft: #d7e4f7;
+    --text-main: #1f1f1f;
+    --text-strong: #0f172a;
+    --text-muted: #64748b;
+    --accent: #2563eb;
+    --accent-dark: #1e3a8a;
+    --accent-soft: #dbeafe;
+    --success-text: #166534;
+    --success-bg: rgba(22, 101, 52, 0.08);
+    --error-text: #b42318;
+    --error-bg: rgba(180, 35, 24, 0.08);
 }
 
 html {
@@ -13,12 +28,12 @@ html {
 
 body {
     margin: 0;
-    background: #eef1f5;
-    color: #1f1f1f;
+    background: var(--page-bg);
+    color: var(--text-main);
 }
 
 a {
-    color: #124e96;
+    color: var(--accent);
     text-decoration: none;
 }
 
@@ -35,8 +50,8 @@ a:hover {
 }
 
 .resume-paper {
-    background: #fff;
-    border: 1px solid #d3d8df;
+    background: var(--surface);
+    border: 1px solid var(--border);
     box-shadow: 0 4px 18px rgba(15, 25, 38, 0.08);
     padding: 24px 28px;
 }
@@ -71,7 +86,7 @@ a:hover {
 .contact-note {
     margin: 8px 0 0;
     font-size: 0.88rem;
-    color: #4b5563;
+    color: var(--text-muted);
 }
 
 .contact-note a {
@@ -79,16 +94,21 @@ a:hover {
 }
 
 .resume-section {
-    margin-top: 14px;
+    margin-top: 18px;
 }
 
-.resume-section h2 {
+.resume-section h2,
+.request-card h2 {
     margin: 0 0 8px;
-    font-size: 0.94rem;
+    display: inline-block;
+    font-size: 0.95rem;
     letter-spacing: 0.9px;
     text-transform: uppercase;
-    border-bottom: 1px solid #1f1f1f;
-    padding-bottom: 3px;
+    color: var(--accent-dark);
+    background: var(--accent-soft);
+    border-left: 4px solid var(--accent);
+    border-radius: 0 10px 10px 0;
+    padding: 6px 12px;
 }
 
 .resume-section p {
@@ -112,6 +132,13 @@ li {
 
 .experience-item {
     margin-bottom: 12px;
+    padding: 10px 0 0;
+    border-top: 1px solid #e8edf5;
+}
+
+.experience-item:first-of-type {
+    border-top: none;
+    padding-top: 0;
 }
 
 .experience-head {
@@ -125,42 +152,62 @@ li {
 .experience-head h3 {
     margin: 0;
     font-size: 1rem;
+    color: var(--text-strong);
+    line-height: 1.35;
 }
 
 .experience-head p {
     margin: 0;
     white-space: nowrap;
-    font-size: 0.92rem;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: 999px;
+    padding: 4px 10px;
 }
 
 .request-card {
-    background: #fff;
-    border: 1px solid #d3d8df;
-    box-shadow: 0 4px 18px rgba(15, 25, 38, 0.06);
-    padding: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 18px rgba(15, 25, 38, 0.08);
+    padding: 24px;
 }
 
-.request-card h2 {
-    margin: 0 0 8px;
-    font-size: 1.1rem;
+.request-card>p:first-of-type {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.98rem;
 }
 
 form {
     margin-top: 10px;
     display: grid;
     gap: 10px;
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
 .format-note {
     margin: 0;
     font-size: 0.95rem;
-    color: #4b5563;
+    color: var(--accent-dark);
+    background: var(--accent-soft);
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    padding: 10px 12px;
 }
 
 label {
     display: grid;
     gap: 6px;
     font-weight: 600;
+    color: var(--accent-dark);
 }
 
 input,
@@ -171,34 +218,51 @@ button {
 
 input,
 select {
-    border: 1px solid #c6ced9;
-    border-radius: 6px;
-    padding: 9px 10px;
-    background: #fff;
+    border: 1px solid #c8d2ea;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: var(--surface);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+input:focus,
+select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    transform: translateY(-1px);
 }
 
 button {
     border: none;
-    border-radius: 6px;
-    padding: 10px 12px;
-    background: #124e96;
+    border-radius: 10px;
+    padding: 12px 14px;
+    background: linear-gradient(135deg, var(--accent) 0%, #3b82f6 100%);
     color: #fff;
     font-weight: 700;
     cursor: pointer;
+    box-shadow: 0 10px 22px rgba(37, 99, 235, 0.2);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 
 button:hover {
-    background: #0f437f;
+    transform: translateY(-1px);
+    box-shadow: 0 14px 26px rgba(37, 99, 235, 0.25);
+    filter: brightness(1.03);
 }
 
 .status {
-    margin: 8px 0 0;
+    margin: 10px 0 0;
     min-height: 1.2em;
-    color: #166534;
+    color: var(--success-text);
+    background: var(--success-bg);
+    border-radius: 10px;
+    padding: 10px 12px;
 }
 
 .status.error {
-    color: #b42318;
+    color: var(--error-text);
+    background: var(--error-bg);
 }
 
 @media (max-width: 720px) {
