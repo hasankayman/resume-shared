@@ -1,4 +1,5 @@
 type ResumeFormat = "pdf" | "docx";
+type RequestStatus = "pending" | "approved" | "rejected";
 
 interface Env {
     DB: D1Database;
@@ -18,7 +19,18 @@ interface RequestRow {
     requester_name: string;
     requester_email: string;
     requested_format: ResumeFormat;
-    status: "pending" | "approved" | "rejected";
+    status: RequestStatus;
+}
+
+interface RecentRequestRow {
+    id: string;
+    requester_name: string;
+    requester_email: string;
+    requester_company: string | null;
+    requested_format: ResumeFormat;
+    status: RequestStatus;
+    created_at: string;
+    acted_at: string | null;
 }
 
 interface DownloadTokenRow {
@@ -88,6 +100,18 @@ function toFormat(value: string): ResumeFormat | null {
     if (value === "pdf" || value === "docx") {
         return value;
     }
+    return null;
+}
+
+function toRequestStatusFilter(value: string): RequestStatus | "all" | null {
+    if (value === "all") {
+        return "all";
+    }
+
+    if (value === "pending" || value === "approved" || value === "rejected") {
+        return value;
+    }
+
     return null;
 }
 
@@ -417,6 +441,39 @@ async function handleGenerateLink(request: Request, env: Env): Promise<Response>
     );
 }
 
+async function handleListRecentRequests(request: Request, env: Env, url: URL): Promise<Response> {
+    if (!(await isAuthorizedAdmin(request, env))) {
+        return jsonResponse({ error: "Unauthorized." }, 401, request);
+    }
+
+    const statusFilter = toRequestStatusFilter(String(url.searchParams.get("status") || "all").trim().toLowerCase());
+    if (!statusFilter) {
+        return jsonResponse({ error: "Invalid status filter." }, 400, request);
+    }
+
+    const limitInput = Number(url.searchParams.get("limit") || 30);
+    const limit = Number.isFinite(limitInput) ? Math.max(1, Math.min(100, Math.floor(limitInput))) : 30;
+
+    const rows = await env.DB.prepare(
+        `SELECT id, requester_name, requester_email, requester_company, requested_format, status, created_at, acted_at
+     FROM requests
+     WHERE (?1 = 'all' OR status = ?1)
+     ORDER BY created_at DESC
+     LIMIT ?2`
+    )
+        .bind(statusFilter, limit)
+        .all<RecentRequestRow>();
+
+    return jsonResponse(
+        {
+            ok: true,
+            items: rows.results || []
+        },
+        200,
+        request
+    );
+}
+
 async function handleDownload(url: URL, env: Env): Promise<Response> {
     if (!env.RESUME_FILES) {
         return jsonResponse({ error: "Resume file storage is not configured yet." }, 503);
@@ -505,6 +562,10 @@ export default {
 
             if (url.pathname === "/api/admin/generate-link" && request.method === "POST") {
                 return await handleGenerateLink(request, env);
+            }
+
+            if (url.pathname === "/api/admin/requests" && request.method === "GET") {
+                return await handleListRecentRequests(request, env, url);
             }
 
             if (url.pathname.startsWith("/api/download/") && request.method === "GET") {

@@ -223,6 +223,102 @@ li {
     word-break: break-all;
 }
 
+.admin-requests {
+    margin-top: 16px;
+    display: grid;
+    gap: 10px;
+}
+
+.admin-requests-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.admin-requests-head h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--text-strong);
+}
+
+.admin-requests-controls {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.admin-requests-controls label {
+    font-size: 0.9rem;
+}
+
+.admin-requests-controls select {
+    min-width: 140px;
+}
+
+.requests-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    background: var(--surface);
+}
+
+.requests-table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: collapse;
+}
+
+.requests-table th,
+.requests-table td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e8edf5;
+    font-size: 0.9rem;
+    vertical-align: top;
+}
+
+.requests-table th {
+    background: var(--surface-soft);
+    color: var(--text-strong);
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.requests-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.request-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.request-status.status-pending {
+    color: var(--accent-dark);
+    background: var(--accent-soft);
+}
+
+.request-status.status-approved {
+    color: var(--success-text);
+    background: var(--success-bg);
+}
+
+.request-status.status-rejected {
+    color: var(--error-text);
+    background: var(--error-bg);
+}
+
 .request-card>p:first-of-type {
     margin: 0;
     color: var(--text-muted);
@@ -459,6 +555,28 @@ button:hover {
     .admin-nav-link {
         width: 100%;
     }
+
+    .admin-requests-head {
+        align-items: stretch;
+    }
+
+    .admin-requests-controls {
+        width: 100%;
+        align-items: stretch;
+    }
+
+    .admin-requests-controls label {
+        flex: 1 1 220px;
+    }
+
+    .admin-requests-controls select,
+    .admin-requests-controls .secondary-btn {
+        width: 100%;
+    }
+
+    .requests-table {
+        min-width: 680px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -530,5 +648,9 @@ button:hover {
     .experience-head p {
         white-space: normal;
         font-size: 0.74rem;
+    }
+
+    .requests-table {
+        min-width: 560px;
     }
 }

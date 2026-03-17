@@ -4,3 +4,4 @@ dist/
 .env
 .env.*
 coverage/
+PUSH_VERIFY_REFERENCE.md

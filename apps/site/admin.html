@@ -63,6 +63,44 @@
                 <button id="copy-link" type="button" class="secondary-btn">Copy link</button>
             </section>
 
+            <section class="admin-requests" aria-labelledby="recent-requests-title">
+                <div class="admin-requests-head">
+                    <h3 id="recent-requests-title">Recent Requests</h3>
+                    <div class="admin-requests-controls">
+                        <label>
+                            Status
+                            <select id="requests-filter" disabled>
+                                <option value="all">All</option>
+                                <option value="pending">Pending</option>
+                                <option value="approved">Approved</option>
+                                <option value="rejected">Rejected</option>
+                            </select>
+                        </label>
+                        <button id="refresh-requests" type="button" class="secondary-btn" disabled>Refresh</button>
+                    </div>
+                </div>
+
+                <p id="requests-status" class="status error" role="status" aria-live="polite">Sign in required before
+                    loading requests.</p>
+
+                <div id="requests-table-wrap" class="requests-table-wrap" hidden>
+                    <table class="requests-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Company</th>
+                                <th>Format</th>
+                                <th>Status</th>
+                                <th>Requested</th>
+                                <th>Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody id="requests-body"></tbody>
+                    </table>
+                </div>
+            </section>
+
             <p class="format-note"><strong>Security note:</strong> Only your authorized Google account can create links.
             </p>
         </section>

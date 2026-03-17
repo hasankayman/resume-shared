@@ -16,6 +16,11 @@ const linkElement = document.getElementById("download-link");
 const expiresElement = document.getElementById("expires-at");
 const copyButton = document.getElementById("copy-link");
 const signoutButton = document.getElementById("signout-btn");
+const requestsStatusElement = document.getElementById("requests-status");
+const requestsFilterElement = document.getElementById("requests-filter");
+const refreshRequestsButton = document.getElementById("refresh-requests");
+const requestsTableWrap = document.getElementById("requests-table-wrap");
+const requestsBody = document.getElementById("requests-body");
 
 let googleIdToken = "";
 
@@ -84,10 +89,141 @@ function setStatus(message, type = "neutral") {
     }
 }
 
+function setRequestsStatus(message, type = "neutral") {
+    requestsStatusElement.textContent = message;
+    requestsStatusElement.classList.remove("error", "neutral");
+
+    if (type === "error") {
+        requestsStatusElement.classList.add("error");
+        return;
+    }
+
+    if (type === "neutral") {
+        requestsStatusElement.classList.add("neutral");
+    }
+}
+
+function clearRecentRequests() {
+    requestsBody.innerHTML = "";
+    requestsTableWrap.hidden = true;
+}
+
+function formatTimestamp(value) {
+    if (!value) {
+        return "—";
+    }
+
+    const parsedDate = new Date(value);
+    if (Number.isNaN(parsedDate.getTime())) {
+        return value;
+    }
+
+    return parsedDate.toLocaleString();
+}
+
+function buildStatusBadge(status) {
+    const badge = document.createElement("span");
+    const normalizedStatus = String(status || "pending").toLowerCase();
+    badge.className = `request-status status-${normalizedStatus}`;
+    badge.textContent = normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1);
+    return badge;
+}
+
+function renderRecentRequests(items) {
+    requestsBody.innerHTML = "";
+
+    if (!items.length) {
+        requestsTableWrap.hidden = true;
+        return;
+    }
+
+    for (const item of items) {
+        const row = document.createElement("tr");
+
+        const nameCell = document.createElement("td");
+        nameCell.textContent = String(item.requester_name || "");
+
+        const emailCell = document.createElement("td");
+        emailCell.textContent = String(item.requester_email || "");
+
+        const companyCell = document.createElement("td");
+        companyCell.textContent = String(item.requester_company || "—");
+
+        const formatCell = document.createElement("td");
+        formatCell.textContent = String(item.requested_format || "").toUpperCase();
+
+        const statusCell = document.createElement("td");
+        statusCell.appendChild(buildStatusBadge(item.status));
+
+        const createdAtCell = document.createElement("td");
+        createdAtCell.textContent = formatTimestamp(item.created_at);
+
+        const actedAtCell = document.createElement("td");
+        actedAtCell.textContent = formatTimestamp(item.acted_at);
+
+        row.append(nameCell, emailCell, companyCell, formatCell, statusCell, createdAtCell, actedAtCell);
+        requestsBody.appendChild(row);
+    }
+
+    requestsTableWrap.hidden = false;
+}
+
+async function loadRecentRequests() {
+    if (!googleIdToken) {
+        clearRecentRequests();
+        setRequestsStatus("Sign in required before loading requests.", "error");
+        return;
+    }
+
+    const selectedStatus = String(requestsFilterElement.value || "all").toLowerCase();
+
+    try {
+        refreshRequestsButton.disabled = true;
+        setRequestsStatus("Loading recent requests...", "neutral");
+
+        const response = await fetch(
+            `${API_BASE}/api/admin/requests?status=${encodeURIComponent(selectedStatus)}&limit=30`,
+            {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${googleIdToken}`
+                }
+            }
+        );
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            clearRecentRequests();
+            setRequestsStatus(result.error || "Failed to load recent requests.", "error");
+            return;
+        }
+
+        const items = Array.isArray(result.items) ? result.items : [];
+        renderRecentRequests(items);
+
+        if (!items.length) {
+            setRequestsStatus("No requests found for this filter.", "neutral");
+            return;
+        }
+
+        setRequestsStatus(`Showing ${items.length} recent request${items.length === 1 ? "" : "s"}.`, "neutral");
+    } catch {
+        clearRecentRequests();
+        setRequestsStatus("Unable to load requests. Check Worker URL and connectivity.", "error");
+    } finally {
+        refreshRequestsButton.disabled = false;
+    }
+}
+
 function setSignedOutState() {
     googleIdToken = "";
     generateButton.disabled = true;
     signoutButton.hidden = true;
+    requestsFilterElement.disabled = true;
+    refreshRequestsButton.disabled = true;
+    clearRecentRequests();
+    setRequestsStatus("Sign in required before loading requests.", "error");
     resultSection.hidden = true;
     setStatus("Sign in required before generating links.", "error");
 }
@@ -96,6 +232,9 @@ function setSignedInState(token) {
     googleIdToken = token;
     generateButton.disabled = false;
     signoutButton.hidden = false;
+    requestsFilterElement.disabled = false;
+    refreshRequestsButton.disabled = false;
+    loadRecentRequests();
 
     const signedInEmail = decodeTokenEmail(token);
     if (signedInEmail) {
@@ -214,6 +353,14 @@ signoutButton.addEventListener("click", () => {
         window.google.accounts.id.disableAutoSelect();
     }
     setSignedOutState();
+});
+
+refreshRequestsButton.addEventListener("click", () => {
+    loadRecentRequests();
+});
+
+requestsFilterElement.addEventListener("change", () => {
+    loadRecentRequests();
 });
 
 setSignedOutState();
