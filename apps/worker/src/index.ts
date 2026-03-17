@@ -429,7 +429,16 @@ export default {
 
         try {
             if (url.pathname === "/api/health" && request.method === "GET") {
-                return jsonResponse({ ok: true }, 200, request);
+                return jsonResponse(
+                    {
+                        ok: true,
+                        r2Configured: Boolean(env.RESUME_FILES),
+                        resendConfigured: Boolean(env.RESEND_API_KEY),
+                        adminApiKeyConfigured: Boolean(env.ADMIN_API_KEY)
+                    },
+                    200,
+                    request
+                );
             }
 
             if (url.pathname === "/api/request-download" && request.method === "POST") {

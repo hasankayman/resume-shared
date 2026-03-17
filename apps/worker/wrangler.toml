@@ -8,6 +8,10 @@ binding = "DB"
 database_name = "resume_gate"
 database_id = "2e488db7-75ce-404f-b699-9343af52f0c1"
 
+[[r2_buckets]]
+binding = "RESUME_FILES"
+bucket_name = "resume-private-files"
+
 [vars]
 ADMIN_EMAIL = "hasankayman@gmail.com"
 FROM_EMAIL = "hasankayman@gmail.com"
