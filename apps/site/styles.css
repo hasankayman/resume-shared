@@ -176,6 +176,50 @@ li {
     padding: 24px;
 }
 
+.admin-page {
+    max-width: 760px;
+}
+
+.admin-card {
+    margin-top: 20px;
+}
+
+.admin-intro {
+    margin: 0;
+    color: var(--text-muted);
+}
+
+.admin-auth-block {
+    margin-top: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.google-signin {
+    min-height: 44px;
+}
+
+.admin-result {
+    margin-top: 14px;
+    display: grid;
+    gap: 8px;
+    background: var(--surface-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: 12px;
+    padding: 14px;
+}
+
+.admin-result p {
+    margin: 0;
+}
+
+.admin-result a {
+    font-weight: 600;
+    word-break: break-all;
+}
+
 .request-card>p:first-of-type {
     margin: 0;
     color: var(--text-muted);
@@ -251,6 +295,19 @@ button:hover {
     filter: brightness(1.03);
 }
 
+.secondary-btn {
+    background: var(--surface);
+    color: var(--accent-dark);
+    border: 1px solid var(--border-soft);
+    box-shadow: none;
+}
+
+.secondary-btn:hover {
+    box-shadow: none;
+    filter: none;
+    background: var(--accent-soft);
+}
+
 .status {
     margin: 10px 0 0;
     min-height: 1.2em;
@@ -263,6 +320,11 @@ button:hover {
 .status.error {
     color: var(--error-text);
     background: var(--error-bg);
+}
+
+.status.neutral {
+    color: var(--accent-dark);
+    background: rgba(37, 99, 235, 0.08);
 }
 
 @media (max-width: 720px) {

@@ -9,6 +9,8 @@ interface Env {
     ADMIN_BASE_URL: string;
     RESEND_API_KEY: string;
     ADMIN_API_KEY: string;
+    ADMIN_GOOGLE_EMAIL?: string;
+    GOOGLE_CLIENT_ID?: string;
 }
 
 interface RequestRow {
@@ -25,6 +27,13 @@ interface DownloadTokenRow {
     expires_at: string;
     max_uses: number;
     use_count: number;
+}
+
+interface GoogleTokenInfo {
+    aud?: string;
+    email?: string;
+    email_verified?: string | boolean;
+    exp?: string;
 }
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -108,6 +117,59 @@ function getObjectKey(format: ResumeFormat): string {
 
 function nowIso(): string {
     return new Date().toISOString();
+}
+
+function hasRealValue(value: string | undefined, placeholder: string): boolean {
+    const normalized = String(value || "").trim();
+    return Boolean(normalized) && !normalized.includes(placeholder);
+}
+
+async function isValidGoogleAdminToken(env: Env, token: string): Promise<boolean> {
+    const adminGoogleEmail = String(env.ADMIN_GOOGLE_EMAIL || "").trim().toLowerCase();
+    if (!adminGoogleEmail) {
+        return false;
+    }
+
+    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`);
+    if (!response.ok) {
+        return false;
+    }
+
+    const tokenInfo = (await response.json()) as GoogleTokenInfo;
+    const isEmailVerified = tokenInfo.email_verified === true || tokenInfo.email_verified === "true";
+    const tokenEmail = String(tokenInfo.email || "").trim().toLowerCase();
+
+    if (!isEmailVerified || !tokenEmail || tokenEmail !== adminGoogleEmail) {
+        return false;
+    }
+
+    if (tokenInfo.exp && Number(tokenInfo.exp) * 1000 <= Date.now()) {
+        return false;
+    }
+
+    if (hasRealValue(env.GOOGLE_CLIENT_ID, "REPLACE_WITH_GOOGLE_OAUTH_CLIENT_ID")) {
+        return tokenInfo.aud === String(env.GOOGLE_CLIENT_ID).trim();
+    }
+
+    return true;
+}
+
+async function isAuthorizedAdmin(request: Request, env: Env): Promise<boolean> {
+    const authorization = request.headers.get("Authorization") || "";
+    if (!authorization.startsWith("Bearer ")) {
+        return false;
+    }
+
+    const token = authorization.slice("Bearer ".length).trim();
+    if (!token) {
+        return false;
+    }
+
+    if (env.ADMIN_API_KEY && token === env.ADMIN_API_KEY) {
+        return true;
+    }
+
+    return await isValidGoogleAdminToken(env, token);
 }
 
 async function sendEmail(env: Env, params: { to: string; subject: string; html: string; text: string }): Promise<void> {
@@ -315,10 +377,7 @@ async function handleAdminDecision(url: URL, env: Env, approve: boolean): Promis
 }
 
 async function handleGenerateLink(request: Request, env: Env): Promise<Response> {
-    const expected = `Bearer ${env.ADMIN_API_KEY}`;
-    const provided = request.headers.get("Authorization") || "";
-
-    if (!env.ADMIN_API_KEY || provided !== expected) {
+    if (!(await isAuthorizedAdmin(request, env))) {
         return jsonResponse({ error: "Unauthorized." }, 401, request);
     }
 
@@ -429,16 +488,7 @@ export default {
 
         try {
             if (url.pathname === "/api/health" && request.method === "GET") {
-                return jsonResponse(
-                    {
-                        ok: true,
-                        r2Configured: Boolean(env.RESUME_FILES),
-                        resendConfigured: Boolean(env.RESEND_API_KEY),
-                        adminApiKeyConfigured: Boolean(env.ADMIN_API_KEY)
-                    },
-                    200,
-                    request
-                );
+                return jsonResponse({ ok: true }, 200, request);
             }
 
             if (url.pathname === "/api/request-download" && request.method === "POST") {

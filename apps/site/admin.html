@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin | Resume Link Generator</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script>
+        window.ADMIN_CONFIG = {
+            apiBase: "https://resume-gate-worker.hasankayman.workers.dev",
+            googleClientId: "REPLACE_WITH_GOOGLE_OAUTH_CLIENT_ID"
+        };
+    </script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+
+<body>
+    <main class="page admin-page">
+        <section class="request-card admin-card">
+            <h2>Admin Link Generator</h2>
+            <p class="admin-intro">Sign in with your Google account, enter recruiter details, and create a one-time
+                resume download link.</p>
+
+            <div class="admin-auth-block">
+                <div id="google-signin" class="google-signin"></div>
+                <button id="signout-btn" type="button" class="secondary-btn" hidden>Sign out</button>
+            </div>
+
+            <p id="admin-status" class="status error" role="status" aria-live="polite">Sign in required before
+                generating links.</p>
+
+            <form id="admin-form" novalidate>
+                <label>
+                    Recruiter email
+                    <input name="email" type="email" required />
+                </label>
+
+                <label>
+                    Format
+                    <select name="format" required>
+                        <option value="pdf">PDF</option>
+                        <option value="docx">DOCX</option>
+                    </select>
+                </label>
+
+                <label>
+                    Link expiry (hours)
+                    <input name="ttlHours" type="number" min="1" max="72" value="24" required />
+                </label>
+
+                <button id="generate-btn" type="submit" disabled>Generate one-time link</button>
+            </form>
+
+            <section id="admin-result" class="admin-result" hidden>
+                <p><strong>Download link</strong></p>
+                <a id="download-link" target="_blank" rel="noreferrer"></a>
+                <p id="expires-at"></p>
+                <button id="copy-link" type="button" class="secondary-btn">Copy link</button>
+            </section>
+
+            <p class="format-note"><strong>Security note:</strong> Only your authorized Google account can create links.
+            </p>
+        </section>
+    </main>
+
+    <script src="./admin.js"></script>
+</body>
+
+</html>

@@ -13,6 +13,7 @@ This project gives you a public HTML resume and a gated download flow for PDF/DO
 - You receive an approval email.
 - After approval, the recruiter receives a one-time download link.
 - You can also create a one-time link directly from an admin API endpoint.
+- You can generate manual links from a protected admin page using Google sign-in.
 
 ## Prerequisites
 
@@ -38,6 +39,13 @@ This project gives you a public HTML resume and a gated download flow for PDF/DO
 6. Upload private files to R2:
    - `resume/resume.pdf`
    - `resume/resume.docx`
+7. Configure Google OAuth for admin page:
+   - Create a Google OAuth Client ID for a Web application.
+   - Add Authorized JavaScript origins:
+     - `https://hasankayman.github.io`
+     - `http://localhost:4173`
+   - Set `GOOGLE_CLIENT_ID` in `apps/worker/wrangler.toml`.
+   - Set the same value in `apps/site/admin.html` (`window.ADMIN_CONFIG.googleClientId`).
 
 ## Local development
 
@@ -45,6 +53,7 @@ This project gives you a public HTML resume and a gated download flow for PDF/DO
   - `npm run dev:worker`
 - Serve `apps/site` with any static server.
 - In `apps/site/script.js`, set `window.RESUME_API_BASE` to your Worker URL when needed.
+- Open admin page at `/admin.html` for manual link generation.
 
 ## Deploy
 
@@ -57,4 +66,8 @@ This project gives you a public HTML resume and a gated download flow for PDF/DO
 - Request endpoint: `POST /api/request-download`
 - Approve link: `GET /api/admin/approve?requestId=...&token=...`
 - Reject link: `GET /api/admin/reject?requestId=...&token=...`
-- Manual one-time link: `POST /api/admin/generate-link` with `Authorization: Bearer <ADMIN_API_KEY>`
+- Manual one-time link API: `POST /api/admin/generate-link`
+   - Authorization supports either:
+      - `Bearer <ADMIN_API_KEY>`
+      - `Bearer <Google ID Token>` for the configured `ADMIN_GOOGLE_EMAIL`
+- Protected admin UI: `apps/site/admin.html` (Google sign-in required before generating links)
