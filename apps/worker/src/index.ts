@@ -22,6 +22,8 @@ interface RequestRow {
     status: RequestStatus;
 }
 
+type AdminDecision = "approve" | "reject";
+
 interface RecentRequestRow {
     id: string;
     requester_name: string;
@@ -115,6 +117,14 @@ function toRequestStatusFilter(value: string): RequestStatus | "all" | null {
     return null;
 }
 
+function toAdminDecision(value: string): AdminDecision | null {
+    if (value === "approve" || value === "reject") {
+        return value;
+    }
+
+    return null;
+}
+
 function isValidEmail(value: string): boolean {
     return emailPattern.test(value);
 }
@@ -196,10 +206,10 @@ async function isAuthorizedAdmin(request: Request, env: Env): Promise<boolean> {
     return await isValidGoogleAdminToken(env, token);
 }
 
-async function sendEmail(env: Env, params: { to: string; subject: string; html: string; text: string }): Promise<void> {
+async function sendEmail(env: Env, params: { to: string; subject: string; html: string; text: string }): Promise<boolean> {
     if (!env.RESEND_API_KEY) {
         console.log("RESEND_API_KEY is not set. Skipping email send.", params.subject);
-        return;
+        return false;
     }
 
     const response = await fetch("https://api.resend.com/emails", {
@@ -221,6 +231,8 @@ async function sendEmail(env: Env, params: { to: string; subject: string; html: 
         const body = await response.text();
         throw new Error(`Email API request failed: ${body}`);
     }
+
+    return true;
 }
 
 async function issueDownloadToken(
@@ -308,17 +320,30 @@ async function handleRequestDownload(request: Request, env: Env): Promise<Respon
     <p><a href="${rejectLink}">Reject request</a></p>
   `;
 
-    await sendEmail(env, {
-        to: env.ADMIN_EMAIL,
-        subject: adminSubject,
-        html: adminHtml,
-        text: adminText
-    });
+    let adminEmailSent = false;
+    let adminEmailError: string | undefined;
+
+    try {
+        adminEmailSent = await sendEmail(env, {
+            to: env.ADMIN_EMAIL,
+            subject: adminSubject,
+            html: adminHtml,
+            text: adminText
+        });
+    } catch (error) {
+        adminEmailError = error instanceof Error ? error.message : "Admin email send failed.";
+    }
+
+    const message = adminEmailSent
+        ? "Request submitted. You will receive a link by email after approval."
+        : "Request submitted. Admin email notifications are unavailable right now, but your request is visible in the admin dashboard.";
 
     return jsonResponse(
         {
             ok: true,
-            message: "Request submitted. You will receive a link by email after approval."
+            message,
+            adminEmailSent,
+            adminEmailError
         },
         202,
         request
@@ -356,14 +381,25 @@ async function handleAdminDecision(url: URL, env: Env, approve: boolean): Promis
     if (!approve) {
         await env.DB.prepare(`UPDATE requests SET status = 'rejected', acted_at = ?1 WHERE id = ?2`).bind(actedAt, row.id).run();
 
-        await sendEmail(env, {
-            to: row.requester_email,
-            subject: "Resume request update",
-            text: "Your request for a downloadable resume file was not approved at this time.",
-            html: "<p>Your request for a downloadable resume file was not approved at this time.</p>"
-        });
+        let requesterEmailSent = false;
+        let rejectNote = "The request was rejected, but email is not configured so no notification was sent.";
 
-        return htmlResponse("<h1>Request rejected</h1><p>The requester has been notified.</p>");
+        try {
+            requesterEmailSent = await sendEmail(env, {
+                to: row.requester_email,
+                subject: "Resume request update",
+                text: "Your request for a downloadable resume file was not approved at this time.",
+                html: "<p>Your request for a downloadable resume file was not approved at this time.</p>"
+            });
+
+            if (requesterEmailSent) {
+                rejectNote = "The requester has been notified.";
+            }
+        } catch {
+            rejectNote = "The request was rejected, but requester notification email failed to send.";
+        }
+
+        return htmlResponse(`<h1>Request rejected</h1><p>${rejectNote}</p>`);
     }
 
     const tokenResult = await issueDownloadToken(env, {
@@ -376,10 +412,10 @@ async function handleAdminDecision(url: URL, env: Env, approve: boolean): Promis
 
     await env.DB.prepare(`UPDATE requests SET status = 'approved', acted_at = ?1 WHERE id = ?2`).bind(actedAt, row.id).run();
 
-    let deliveryNote = "The requester has been notified by email.";
+    let deliveryNote = `Email is not configured. Share this one-time link manually: <a href="${tokenResult.url}">${tokenResult.url}</a>`;
 
     try {
-        await sendEmail(env, {
+        const requesterEmailSent = await sendEmail(env, {
             to: row.requester_email,
             subject: "Your resume download link",
             text: [
@@ -393,11 +429,136 @@ async function handleAdminDecision(url: URL, env: Env, approve: boolean): Promis
         <p>This one-time link expires at ${sanitize(tokenResult.expiresAt)}.</p>
       `
         });
+
+        if (requesterEmailSent) {
+            deliveryNote = "The requester has been notified by email.";
+        }
     } catch {
         deliveryNote = `Email failed. Share this one-time link manually: <a href="${tokenResult.url}">${tokenResult.url}</a>`;
     }
 
     return htmlResponse(`<h1>Request approved</h1><p>${deliveryNote}</p>`);
+}
+
+async function handleAdminDecisionApi(request: Request, env: Env): Promise<Response> {
+    if (!(await isAuthorizedAdmin(request, env))) {
+        return jsonResponse({ error: "Unauthorized." }, 401, request);
+    }
+
+    let body: unknown;
+    try {
+        body = await request.json();
+    } catch {
+        return jsonResponse({ error: "Invalid JSON payload." }, 400, request);
+    }
+
+    const payload = (body ?? {}) as Record<string, unknown>;
+    const requestId = String(payload.requestId ?? "").trim();
+    const decision = toAdminDecision(String(payload.decision ?? "").trim().toLowerCase());
+
+    if (!requestId || !decision) {
+        return jsonResponse({ error: "requestId and decision are required." }, 400, request);
+    }
+
+    const row = await env.DB.prepare(
+        `SELECT id, requester_name, requester_email, requested_format, status
+     FROM requests
+     WHERE id = ?1`
+    )
+        .bind(requestId)
+        .first<RequestRow>();
+
+    if (!row) {
+        return jsonResponse({ error: "Request not found." }, 404, request);
+    }
+
+    if (row.status !== "pending") {
+        return jsonResponse({ error: `Request already ${row.status}.`, status: row.status }, 409, request);
+    }
+
+    const actedAt = nowIso();
+
+    if (decision === "reject") {
+        await env.DB.prepare(`UPDATE requests SET status = 'rejected', acted_at = ?1 WHERE id = ?2`).bind(actedAt, row.id).run();
+
+        let emailSent = false;
+        let emailError: string | undefined;
+
+        try {
+            emailSent = await sendEmail(env, {
+                to: row.requester_email,
+                subject: "Resume request update",
+                text: "Your request for a downloadable resume file was not approved at this time.",
+                html: "<p>Your request for a downloadable resume file was not approved at this time.</p>"
+            });
+        } catch (error) {
+            emailError = error instanceof Error ? error.message : "Email send failed.";
+        }
+
+        return jsonResponse(
+            {
+                ok: true,
+                requestId: row.id,
+                status: "rejected",
+                emailSent,
+                emailError,
+                message: emailSent
+                    ? "Request rejected and requester notified by email."
+                    : "Request rejected. Email is not configured or failed."
+            },
+            200,
+            request
+        );
+    }
+
+    const tokenResult = await issueDownloadToken(env, {
+        email: row.requester_email,
+        format: row.requested_format,
+        requestId: row.id,
+        ttlHours: 24,
+        baseUrl: resolveBaseUrl(env, new URL(request.url))
+    });
+
+    await env.DB.prepare(`UPDATE requests SET status = 'approved', acted_at = ?1 WHERE id = ?2`).bind(actedAt, row.id).run();
+
+    let emailSent = false;
+    let emailError: string | undefined;
+
+    try {
+        emailSent = await sendEmail(env, {
+            to: row.requester_email,
+            subject: "Your resume download link",
+            text: [
+                `Your request was approved.`,
+                `Download link: ${tokenResult.url}`,
+                `This one-time link expires at ${tokenResult.expiresAt}.`
+            ].join("\n"),
+            html: `
+        <p>Your request was approved.</p>
+        <p><a href="${tokenResult.url}">Download resume</a></p>
+        <p>This one-time link expires at ${sanitize(tokenResult.expiresAt)}.</p>
+      `
+        });
+    } catch (error) {
+        emailError = error instanceof Error ? error.message : "Email send failed.";
+    }
+
+    return jsonResponse(
+        {
+            ok: true,
+            requestId: row.id,
+            status: "approved",
+            emailSent,
+            emailError,
+            downloadUrl: tokenResult.url,
+            expiresAt: tokenResult.expiresAt,
+            message: emailSent
+                ? "Request approved and requester notified by email."
+                : "Request approved. Email is not configured or failed, so share the generated link manually."
+        },
+        200,
+        request
+    );
 }
 
 async function handleGenerateLink(request: Request, env: Env): Promise<Response> {
@@ -562,6 +723,10 @@ export default {
 
             if (url.pathname === "/api/admin/generate-link" && request.method === "POST") {
                 return await handleGenerateLink(request, env);
+            }
+
+            if (url.pathname === "/api/admin/requests/decision" && request.method === "POST") {
+                return await handleAdminDecisionApi(request, env);
             }
 
             if (url.pathname === "/api/admin/requests" && request.method === "GET") {

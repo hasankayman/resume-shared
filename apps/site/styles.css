@@ -319,6 +319,46 @@ li {
     background: var(--error-bg);
 }
 
+.request-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.request-action-btn {
+    min-height: 32px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border-soft);
+    background: var(--surface);
+    color: var(--accent-dark);
+    font-size: 0.82rem;
+    font-weight: 700;
+    box-shadow: none;
+}
+
+.request-action-btn:hover {
+    box-shadow: none;
+    transform: none;
+    filter: none;
+    background: var(--accent-soft);
+}
+
+.request-action-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.request-action-approve {
+    color: var(--success-text);
+    background: var(--success-bg);
+}
+
+.request-action-reject {
+    color: var(--error-text);
+    background: var(--error-bg);
+}
+
 .request-card>p:first-of-type {
     margin: 0;
     color: var(--text-muted);

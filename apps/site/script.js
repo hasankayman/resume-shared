@@ -57,7 +57,7 @@ form.addEventListener("submit", async (event) => {
             return;
         }
 
-        setStatus("Request submitted. You will receive a download link after approval.");
+        setStatus(String(result.message || "Request submitted. You will receive a download link after approval."));
         form.reset();
     } catch {
         setStatus("Unable to reach the request service. Verify Worker URL and network connectivity.", true);

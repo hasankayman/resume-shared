@@ -129,6 +129,16 @@ function buildStatusBadge(status) {
     return badge;
 }
 
+function createRequestActionButton(label, requestId, decision, extraClass) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `request-action-btn ${extraClass}`;
+    button.dataset.requestId = requestId;
+    button.dataset.decision = decision;
+    button.textContent = label;
+    return button;
+}
+
 function renderRecentRequests(items) {
     requestsBody.innerHTML = "";
 
@@ -161,7 +171,24 @@ function renderRecentRequests(items) {
         const actedAtCell = document.createElement("td");
         actedAtCell.textContent = formatTimestamp(item.acted_at);
 
-        row.append(nameCell, emailCell, companyCell, formatCell, statusCell, createdAtCell, actedAtCell);
+        const actionsCell = document.createElement("td");
+        const normalizedStatus = String(item.status || "").toLowerCase();
+        const requestId = String(item.id || "");
+
+        if (normalizedStatus === "pending" && requestId) {
+            const actionGroup = document.createElement("div");
+            actionGroup.className = "request-actions";
+
+            const approveButton = createRequestActionButton("Approve", requestId, "approve", "request-action-approve");
+            const rejectButton = createRequestActionButton("Reject", requestId, "reject", "request-action-reject");
+
+            actionGroup.append(approveButton, rejectButton);
+            actionsCell.appendChild(actionGroup);
+        } else {
+            actionsCell.textContent = "—";
+        }
+
+        row.append(nameCell, emailCell, companyCell, formatCell, statusCell, createdAtCell, actedAtCell, actionsCell);
         requestsBody.appendChild(row);
     }
 
@@ -213,6 +240,68 @@ async function loadRecentRequests() {
         setRequestsStatus("Unable to load requests. Check Worker URL and connectivity.", "error");
     } finally {
         refreshRequestsButton.disabled = false;
+    }
+}
+
+function setActionGroupBusy(actionGroup, isBusy) {
+    if (!actionGroup) {
+        return;
+    }
+
+    const buttons = actionGroup.querySelectorAll("button");
+    for (const button of buttons) {
+        button.disabled = isBusy;
+    }
+}
+
+async function handleRequestDecision(requestId, decision, clickedButton) {
+    if (!googleIdToken) {
+        setRequestsStatus("Please sign in with Google first.", "error");
+        return;
+    }
+
+    const actionGroup = clickedButton.closest(".request-actions");
+
+    try {
+        setActionGroupBusy(actionGroup, true);
+        setRequestsStatus(`${decision === "approve" ? "Approving" : "Rejecting"} request...`, "neutral");
+
+        const response = await fetch(`${API_BASE}/api/admin/requests/decision`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${googleIdToken}`
+            },
+            body: JSON.stringify({ requestId, decision })
+        });
+
+        const result = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            setRequestsStatus(result.error || "Unable to update request status.", "error");
+            if (response.status === 409) {
+                loadRecentRequests();
+            }
+            return;
+        }
+
+        setRequestsStatus(result.message || "Request updated.", "neutral");
+
+        if (decision === "approve" && result.downloadUrl && result.emailSent === false) {
+            const manualUrl = String(result.downloadUrl || "").trim();
+            const manualExpiry = String(result.expiresAt || "").trim();
+            linkElement.href = manualUrl;
+            linkElement.textContent = manualUrl;
+            expiresElement.textContent = manualExpiry ? `Expires: ${manualExpiry}` : "";
+            resultSection.hidden = false;
+            setStatus("Requester email could not be sent. Share the generated link manually.", "error");
+        }
+
+        await loadRecentRequests();
+    } catch {
+        setRequestsStatus("Unable to reach admin API. Check Worker URL and connectivity.", "error");
+    } finally {
+        setActionGroupBusy(actionGroup, false);
     }
 }
 
@@ -361,6 +450,27 @@ refreshRequestsButton.addEventListener("click", () => {
 
 requestsFilterElement.addEventListener("change", () => {
     loadRecentRequests();
+});
+
+requestsBody.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+        return;
+    }
+
+    const actionButton = target.closest(".request-action-btn");
+    if (!(actionButton instanceof HTMLButtonElement)) {
+        return;
+    }
+
+    const requestId = String(actionButton.dataset.requestId || "").trim();
+    const decision = String(actionButton.dataset.decision || "").trim().toLowerCase();
+
+    if (!requestId || (decision !== "approve" && decision !== "reject")) {
+        return;
+    }
+
+    handleRequestDecision(requestId, decision, actionButton);
 });
 
 setSignedOutState();
