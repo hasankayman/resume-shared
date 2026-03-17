@@ -151,6 +151,12 @@ form {
     gap: 10px;
 }
 
+.format-note {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #4b5563;
+}
+
 label {
     display: grid;
     gap: 6px;

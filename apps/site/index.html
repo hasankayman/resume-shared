@@ -19,7 +19,7 @@
                     <span>|</span>
                     <a href="https://www.linkedin.com/in/hasan-kayman/" target="_blank" rel="noreferrer">LinkedIn</a>
                 </p>
-                <p class="contact-note">Phone number and email address are shared in approved PDF/DOCX resume files. <a
+                <p class="contact-note">Phone number and email address are shared in approved PDF resume files. <a
                         href="#request-form-section">Click here to request</a>.</p>
             </header>
 
@@ -176,7 +176,7 @@
 
         <section id="request-form-section" class="request-card">
             <h2>Request Resume File</h2>
-            <p>Request PDF or DOCX. You will receive the download link after approval.</p>
+            <p>Request PDF. You will receive the download link after approval.</p>
             <form id="request-form" novalidate>
                 <label>
                     Your name
@@ -190,13 +190,8 @@
                     Company (optional)
                     <input name="company" type="text" />
                 </label>
-                <label>
-                    Format
-                    <select name="format" required>
-                        <option value="pdf">PDF</option>
-                        <option value="docx">DOCX</option>
-                    </select>
-                </label>
+                <input name="format" type="hidden" value="pdf" />
+                <p class="format-note"><strong>Available format:</strong> PDF only</p>
                 <button type="submit">Request Download</button>
             </form>
             <p id="form-status" class="status" role="status" aria-live="polite"></p>
