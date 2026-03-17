@@ -6,14 +6,10 @@ workers_dev = true
 [[d1_databases]]
 binding = "DB"
 database_name = "resume_gate"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
-
-[[r2_buckets]]
-binding = "RESUME_FILES"
-bucket_name = "resume-private-files"
+database_id = "2e488db7-75ce-404f-b699-9343af52f0c1"
 
 [vars]
 ADMIN_EMAIL = "hasankayman@gmail.com"
 FROM_EMAIL = "hasankayman@gmail.com"
-PUBLIC_SITE_URL = "https://YOUR_USERNAME.github.io/YOUR_REPO"
-ADMIN_BASE_URL = "https://resume-gate-worker.YOUR_SUBDOMAIN.workers.dev"
+PUBLIC_SITE_URL = "https://hasankayman.github.io/resume-shared"
+ADMIN_BASE_URL = "https://resume-gate-worker.hasankayman.workers.dev"

@@ -2,7 +2,7 @@ type ResumeFormat = "pdf" | "docx";
 
 interface Env {
     DB: D1Database;
-    RESUME_FILES: R2Bucket;
+    RESUME_FILES?: R2Bucket;
     ADMIN_EMAIL: string;
     FROM_EMAIL: string;
     PUBLIC_SITE_URL: string;
@@ -55,6 +55,15 @@ function htmlResponse(html: string, status = 200): Response {
 
 function normalizeBaseUrl(value: string): string {
     return value.replace(/\/+$/, "");
+}
+
+function resolveBaseUrl(env: Env, requestUrl: URL): string {
+    const configuredBaseUrl = String(env.ADMIN_BASE_URL || "").trim();
+    if (!configuredBaseUrl || configuredBaseUrl.includes("YOUR_SUBDOMAIN")) {
+        return normalizeBaseUrl(requestUrl.origin);
+    }
+
+    return normalizeBaseUrl(configuredBaseUrl);
 }
 
 function sanitize(value: string): string {
@@ -130,7 +139,7 @@ async function sendEmail(env: Env, params: { to: string; subject: string; html: 
 
 async function issueDownloadToken(
     env: Env,
-    args: { email: string; format: ResumeFormat; requestId: string | null; ttlHours: number }
+    args: { email: string; format: ResumeFormat; requestId: string | null; ttlHours: number; baseUrl: string }
 ): Promise<{ token: string; expiresAt: string; url: string }> {
     const token = randomToken();
     const tokenHash = await sha256Hex(token);
@@ -146,8 +155,7 @@ async function issueDownloadToken(
         .bind(crypto.randomUUID(), args.requestId, args.email, args.format, tokenHash, expiresAt, createdAt)
         .run();
 
-    const baseUrl = normalizeBaseUrl(env.ADMIN_BASE_URL);
-    const url = `${baseUrl}/api/download/${encodeURIComponent(token)}`;
+    const url = `${normalizeBaseUrl(args.baseUrl)}/api/download/${encodeURIComponent(token)}`;
 
     return { token, expiresAt, url };
 }
@@ -188,7 +196,7 @@ async function handleRequestDownload(request: Request, env: Env): Promise<Respon
         .bind(requestId, name, email, company || null, format, adminActionTokenHash, createdAt)
         .run();
 
-    const baseUrl = normalizeBaseUrl(env.ADMIN_BASE_URL);
+    const baseUrl = resolveBaseUrl(env, new URL(request.url));
     const approveLink = `${baseUrl}/api/admin/approve?requestId=${encodeURIComponent(requestId)}&token=${encodeURIComponent(adminActionToken)}`;
     const rejectLink = `${baseUrl}/api/admin/reject?requestId=${encodeURIComponent(requestId)}&token=${encodeURIComponent(adminActionToken)}`;
 
@@ -276,7 +284,8 @@ async function handleAdminDecision(url: URL, env: Env, approve: boolean): Promis
         email: row.requester_email,
         format: row.requested_format,
         requestId: row.id,
-        ttlHours: 24
+        ttlHours: 24,
+        baseUrl: resolveBaseUrl(env, url)
     });
 
     await env.DB.prepare(`UPDATE requests SET status = 'approved', acted_at = ?1 WHERE id = ?2`).bind(actedAt, row.id).run();
@@ -334,7 +343,8 @@ async function handleGenerateLink(request: Request, env: Env): Promise<Response>
         email,
         format,
         requestId: null,
-        ttlHours
+        ttlHours,
+        baseUrl: resolveBaseUrl(env, new URL(request.url))
     });
 
     return jsonResponse(
@@ -349,6 +359,10 @@ async function handleGenerateLink(request: Request, env: Env): Promise<Response>
 }
 
 async function handleDownload(url: URL, env: Env): Promise<Response> {
+    if (!env.RESUME_FILES) {
+        return jsonResponse({ error: "Resume file storage is not configured yet." }, 503);
+    }
+
     const token = decodeURIComponent(url.pathname.replace("/api/download/", "").trim());
     if (!token) {
         return jsonResponse({ error: "Missing token." }, 400);
