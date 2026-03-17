@@ -1,0 +1,14 @@
+{
+    "name": "resume-shared",
+    "private": true,
+    "version": "0.1.0",
+    "workspaces": [
+        "apps/site",
+        "apps/worker"
+    ],
+    "scripts": {
+        "dev:worker": "npm --workspace @resume/worker run dev",
+        "typecheck": "npm --workspace @resume/worker run typecheck",
+        "deploy:site:check": "echo \"GitHub Pages deployment runs through GitHub Actions.\""
+    }
+}

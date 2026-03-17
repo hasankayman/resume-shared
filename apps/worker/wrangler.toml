@@ -1,0 +1,19 @@
+name = "resume-gate-worker"
+main = "src/index.ts"
+compatibility_date = "2026-03-17"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "resume_gate"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[[r2_buckets]]
+binding = "RESUME_FILES"
+bucket_name = "resume-private-files"
+
+[vars]
+ADMIN_EMAIL = "hasankayman@gmail.com"
+FROM_EMAIL = "hasankayman@gmail.com"
+PUBLIC_SITE_URL = "https://YOUR_USERNAME.github.io/YOUR_REPO"
+ADMIN_BASE_URL = "https://resume-gate-worker.YOUR_SUBDOMAIN.workers.dev"
