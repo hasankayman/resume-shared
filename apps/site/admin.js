@@ -5,6 +5,8 @@ const isLocalHost = window.location.hostname === "localhost" || window.location.
 const config = window.ADMIN_CONFIG || {};
 const API_BASE = config.apiBase || (isLocalHost ? "http://127.0.0.1:8787" : DEFAULT_API_BASE);
 const GOOGLE_CLIENT_ID = config.googleClientId || PLACEHOLDER_CLIENT_ID;
+const GOOGLE_SDK_TIMEOUT_MS = 15000;
+const GOOGLE_SDK_POLL_MS = 250;
 
 const form = document.getElementById("admin-form");
 const statusElement = document.getElementById("admin-status");
@@ -19,6 +21,36 @@ let googleIdToken = "";
 
 function hasConfiguredGoogleClientId(clientId) {
     return Boolean(clientId) && !clientId.includes(PLACEHOLDER_CLIENT_ID);
+}
+
+function hasGoogleSdkLoaded() {
+    return Boolean(window.google && window.google.accounts && window.google.accounts.id);
+}
+
+function ensureGoogleScriptTag() {
+    if (document.querySelector("script[src='https://accounts.google.com/gsi/client']")) {
+        return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+}
+
+async function waitForGoogleSdk(timeoutMs = GOOGLE_SDK_TIMEOUT_MS) {
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < timeoutMs) {
+        if (hasGoogleSdkLoaded()) {
+            return true;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, GOOGLE_SDK_POLL_MS));
+    }
+
+    return hasGoogleSdkLoaded();
 }
 
 function decodeTokenEmail(token) {
@@ -73,14 +105,18 @@ function setSignedInState(token) {
     }
 }
 
-function initGoogleSignIn() {
+async function initGoogleSignIn() {
     if (!hasConfiguredGoogleClientId(GOOGLE_CLIENT_ID)) {
         setStatus("Set your Google OAuth client ID in admin.html before using this page.", "error");
         return;
     }
 
-    if (!window.google || !window.google.accounts || !window.google.accounts.id) {
-        setStatus("Google Sign-In failed to load. Refresh this page and try again.", "error");
+    setStatus("Loading Google Sign-In...", "neutral");
+    ensureGoogleScriptTag();
+
+    const sdkReady = await waitForGoogleSdk();
+    if (!sdkReady) {
+        setStatus("Google Sign-In failed to load. Refresh this page and disable script blockers for accounts.google.com.", "error");
         return;
     }
 
