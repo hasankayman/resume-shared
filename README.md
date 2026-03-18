@@ -34,8 +34,12 @@ This project gives you a public HTML resume and a gated download flow for PDF/DO
 4. Apply migration:
    - `npm --workspace @resume/worker run migrate`
 5. Set Worker secrets:
+   - `npx wrangler secret put ADMIN_EMAIL --cwd apps/worker`
+   - `npx wrangler secret put FROM_EMAIL --cwd apps/worker`
+   - `npx wrangler secret put ADMIN_GOOGLE_EMAIL --cwd apps/worker`
    - `npx wrangler secret put RESEND_API_KEY --cwd apps/worker`
    - `npx wrangler secret put ADMIN_API_KEY --cwd apps/worker`
+   - Security note: Do not store `ADMIN_EMAIL`, `FROM_EMAIL`, or `ADMIN_GOOGLE_EMAIL` under `[vars]` in `apps/worker/wrangler.toml`; set them only with `wrangler secret put`.
 6. Upload private files to R2:
    - `resume/resume.pdf`
    - `resume/resume.docx`

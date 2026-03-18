@@ -10,7 +10,7 @@ interface Env {
     ADMIN_BASE_URL: string;
     RESEND_API_KEY: string;
     ADMIN_API_KEY: string;
-    ADMIN_GOOGLE_EMAIL?: string;
+    ADMIN_GOOGLE_EMAIL: string;
     GOOGLE_CLIENT_ID?: string;
 }
 

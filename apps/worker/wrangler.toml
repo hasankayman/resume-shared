@@ -13,9 +13,6 @@ binding = "RESUME_FILES"
 bucket_name = "resume-private-files"
 
 [vars]
-ADMIN_EMAIL = "hasankayman@gmail.com"
-FROM_EMAIL = "hasankayman@gmail.com"
 PUBLIC_SITE_URL = "https://hasankayman.github.io/resume-shared"
 ADMIN_BASE_URL = "https://resume-gate-worker.hasankayman.workers.dev"
-ADMIN_GOOGLE_EMAIL = "hasankayman@gmail.com"
 GOOGLE_CLIENT_ID = "480157515351-vgn7nv0o3155fo69h7pjnv6ehlhqt0t9.apps.googleusercontent.com"
