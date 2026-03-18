@@ -6,12 +6,16 @@ interface Env {
     RESUME_FILES?: R2Bucket;
     ADMIN_EMAIL: string;
     FROM_EMAIL: string;
+    GMAIL_SENDER_EMAIL?: string;
     PUBLIC_SITE_URL: string;
     ADMIN_BASE_URL: string;
     RESEND_API_KEY: string;
     ADMIN_API_KEY: string;
     ADMIN_GOOGLE_EMAIL: string;
     GOOGLE_CLIENT_ID?: string;
+    GMAIL_CLIENT_ID?: string;
+    GMAIL_CLIENT_SECRET?: string;
+    GMAIL_REFRESH_TOKEN?: string;
 }
 
 interface RequestRow {
@@ -48,6 +52,13 @@ interface GoogleTokenInfo {
     email?: string;
     email_verified?: string | boolean;
     exp?: string;
+}
+
+interface GmailAccessTokenResponse {
+    access_token?: string;
+    token_type?: string;
+    expires_in?: number;
+    scope?: string;
 }
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -158,6 +169,132 @@ function hasRealValue(value: string | undefined, placeholder: string): boolean {
     return Boolean(normalized) && !normalized.includes(placeholder);
 }
 
+function hasConfiguredGmailApi(env: Env): boolean {
+    return (
+        hasRealValue(env.GMAIL_CLIENT_ID, "REPLACE_WITH_GMAIL_CLIENT_ID") &&
+        hasRealValue(env.GMAIL_CLIENT_SECRET, "REPLACE_WITH_GMAIL_CLIENT_SECRET") &&
+        hasRealValue(env.GMAIL_REFRESH_TOKEN, "REPLACE_WITH_GMAIL_REFRESH_TOKEN")
+    );
+}
+
+function getGmailSenderEmail(env: Env): string {
+    const explicitSender = String(env.GMAIL_SENDER_EMAIL || "").trim();
+    if (explicitSender) {
+        return explicitSender;
+    }
+
+    return String(env.FROM_EMAIL || "").trim();
+}
+
+function toBase64UrlUtf8(value: string): string {
+    const bytes = new TextEncoder().encode(value);
+    let binary = "";
+    for (const byte of bytes) {
+        binary += String.fromCharCode(byte);
+    }
+
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+async function getGmailAccessToken(env: Env): Promise<string> {
+    const clientId = String(env.GMAIL_CLIENT_ID || "").trim();
+    const clientSecret = String(env.GMAIL_CLIENT_SECRET || "").trim();
+    const refreshToken = String(env.GMAIL_REFRESH_TOKEN || "").trim();
+
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+            client_id: clientId,
+            client_secret: clientSecret,
+            refresh_token: refreshToken,
+            grant_type: "refresh_token"
+        }).toString()
+    });
+
+    if (!tokenResponse.ok) {
+        const errorBody = await tokenResponse.text();
+        throw new Error(`Gmail token exchange failed: ${errorBody}`);
+    }
+
+    const tokenPayload = (await tokenResponse.json()) as GmailAccessTokenResponse;
+    const accessToken = String(tokenPayload.access_token || "").trim();
+
+    if (!accessToken) {
+        throw new Error("Gmail token exchange succeeded but no access_token was returned.");
+    }
+
+    return accessToken;
+}
+
+function buildMimeMessage(params: { from: string; to: string; subject: string; html: string; text: string }): string {
+    const boundary = `resume-gate-${randomToken(8)}`;
+    const lines = [
+        `From: ${params.from}`,
+        `To: ${params.to}`,
+        `Subject: ${params.subject}`,
+        "MIME-Version: 1.0",
+        `Content-Type: multipart/alternative; boundary=\"${boundary}\"`,
+        "",
+        `--${boundary}`,
+        "Content-Type: text/plain; charset=\"UTF-8\"",
+        "",
+        params.text,
+        "",
+        `--${boundary}`,
+        "Content-Type: text/html; charset=\"UTF-8\"",
+        "",
+        params.html,
+        "",
+        `--${boundary}--`,
+        ""
+    ];
+
+    return lines.join("\r\n");
+}
+
+async function sendEmailViaGmail(
+    env: Env,
+    params: { to: string; subject: string; html: string; text: string }
+): Promise<boolean> {
+    if (!hasConfiguredGmailApi(env)) {
+        return false;
+    }
+
+    const sender = getGmailSenderEmail(env);
+    if (!sender) {
+        throw new Error("Gmail email sending requires FROM_EMAIL or GMAIL_SENDER_EMAIL.");
+    }
+
+    const accessToken = await getGmailAccessToken(env);
+    const mime = buildMimeMessage({
+        from: sender,
+        to: params.to,
+        subject: params.subject,
+        html: params.html,
+        text: params.text
+    });
+    const raw = toBase64UrlUtf8(mime);
+
+    const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ raw })
+    });
+
+    if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`Gmail API send failed: ${body}`);
+    }
+
+    return true;
+}
+
 async function isValidGoogleAdminToken(env: Env, token: string): Promise<boolean> {
     const adminGoogleEmail = String(env.ADMIN_GOOGLE_EMAIL || "").trim().toLowerCase();
     if (!adminGoogleEmail) {
@@ -207,8 +344,12 @@ async function isAuthorizedAdmin(request: Request, env: Env): Promise<boolean> {
 }
 
 async function sendEmail(env: Env, params: { to: string; subject: string; html: string; text: string }): Promise<boolean> {
+    if (hasConfiguredGmailApi(env)) {
+        return await sendEmailViaGmail(env, params);
+    }
+
     if (!env.RESEND_API_KEY) {
-        console.log("RESEND_API_KEY is not set. Skipping email send.", params.subject);
+        console.log("No email provider is configured. Set Gmail API secrets (recommended) or RESEND_API_KEY.", params.subject);
         return false;
     }
 
