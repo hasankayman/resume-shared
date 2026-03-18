@@ -344,8 +344,18 @@ async function isAuthorizedAdmin(request: Request, env: Env): Promise<boolean> {
 }
 
 async function sendEmail(env: Env, params: { to: string; subject: string; html: string; text: string }): Promise<boolean> {
+    const recipient = String(params.to || "").trim().toLowerCase();
+    if (!recipient || !isValidEmail(recipient)) {
+        throw new Error("Recipient email is missing or invalid.");
+    }
+
     if (hasConfiguredGmailApi(env)) {
-        return await sendEmailViaGmail(env, params);
+        return await sendEmailViaGmail(env, { ...params, to: recipient });
+    }
+
+    const sender = String(env.FROM_EMAIL || "").trim();
+    if (!sender || !isValidEmail(sender)) {
+        throw new Error("FROM_EMAIL is missing or invalid.");
     }
 
     if (!env.RESEND_API_KEY) {
@@ -360,8 +370,8 @@ async function sendEmail(env: Env, params: { to: string; subject: string; html: 
             Authorization: `Bearer ${env.RESEND_API_KEY}`
         },
         body: JSON.stringify({
-            from: env.FROM_EMAIL,
-            to: [params.to],
+            from: sender,
+            to: recipient,
             subject: params.subject,
             html: params.html,
             text: params.text
